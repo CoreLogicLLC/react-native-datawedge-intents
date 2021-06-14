@@ -34,9 +34,15 @@ DataWedgeIntents.registerReceiver('com.zebra.dwintents.ACTION', '');
 ...
 //  Declare a handler for barcode scans
 this.scanHandler = (deviceEvent) => {console.log(deviceEvent);};
+//  Declare a handler for PTT button press events 
+this.PTTButtonPressHandler = (pressEvent) => {console.log(pressEvent);};
+// pressEvent.data === "PRESSED" || "RELEASED"
 ...
 //  Listen for scan events sent from the module
 DeviceEventEmitter.addListener('barcode_scan', this.scanHandler);
+
+//  Listen for PTT button press events sent from the module
+DeviceEventEmitter.addListener('button_press', this.PTTButtonPressHandler);
 ...
 //  Initiate a scan (you could also press the trigger key)
 DataWedgeIntents.sendIntent(DataWedgeIntents.ACTION_SOFTSCANTRIGGER,DataWedgeIntents.START_SCANNING);
