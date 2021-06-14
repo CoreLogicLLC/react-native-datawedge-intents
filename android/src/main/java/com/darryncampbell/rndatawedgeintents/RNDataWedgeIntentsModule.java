@@ -12,6 +12,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import org.json.JSONObject;
 import org.json.JSONException;
 import org.json.JSONArray;
@@ -72,7 +73,8 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
     private static final String ACTION_ENUMERATEDLISET = "com.symbol.datawedge.api.ACTION_ENUMERATEDSCANNERLIST";
     private static final String KEY_ENUMERATEDSCANNERLIST = "DWAPI_KEY_ENUMERATEDSCANNERLIST";
     //  END DEPRECATED PROPERTIES
-
+    // PTT Button on TC8000
+    private static final String PTT_BUTTON = "com.symbol.button.L2";    
     //  Scan data receiver - These strings are only used by registerReceiver, a deprecated method
     private static final String RECEIVED_SCAN_SOURCE = "com.symbol.datawedge.source";
     private static final String RECEIVED_SCAN_DATA = "com.symbol.datawedge.data_string";
@@ -105,6 +107,7 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
 
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_ENUMERATEDLISET);
+        filter.addAction(PTT_BUTTON);  
         reactContext.registerReceiver(myEnumerateScannersBroadcastReceiver, filter);
 	    if (this.registeredAction != null)
           registerReceiver(this.registeredAction, this.registeredCategory);
@@ -492,6 +495,19 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
               Toast.makeText(this.reactContext, "Error returning scanners", Toast.LENGTH_LONG).show();
               e.printStackTrace();
           }
+      }
+      else if (action.equals(PTT_BUTTON)) {
+          KeyEvent event = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+          int keyAction = event.getAction();
+          //   Log.v(TAG, "Inside the else if logic for event not null " + keyAction);
+          String buttonState = (keyAction == KeyEvent.ACTION_DOWN ? "PRESSED" : "RELEASED");
+          //   Log.v(TAG, "Button Press state " + buttonState);
+          WritableMap pressData = new WritableNativeMap();
+          
+          //   Log.v(TAG, "PUSH TO TALK BUTTON " + PTT_BUTTON);
+          pressData.putString("source", PTT_BUTTON);
+          pressData.putString("data", buttonState);
+          sendEvent(this.reactContext, "button_press", pressData);
       }
       else
       {
