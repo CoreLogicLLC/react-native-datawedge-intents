@@ -96,47 +96,41 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
     @Override
     public void onHostResume() {
         //Log.v(TAG, "Host Resume");
-      IntentFilter filter = new IntentFilter();
-      filter.addAction(ACTION_ENUMERATEDLISET);
-      reactContext.registerReceiver(myEnumerateScannersBroadcastReceiver, filter);
-	  if (this.registeredAction != null)
+
+        //  Note regarding registerBroadcastReceiver:
+        //  This module makes no attempt to unregister the receiver when the application is paused and re-registers the
+        //  receiver when the application comes to the foreground.  Feel free to fork and add this logic to your solution if
+        //  required - I have found in the past this has led to confusion.
+        //  The logic below refers to the now deprecated broadcast receivers.
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(ACTION_ENUMERATEDLISET);
+        reactContext.registerReceiver(myEnumerateScannersBroadcastReceiver, filter);
+	    if (this.registeredAction != null)
           registerReceiver(this.registeredAction, this.registeredCategory);
           
-      //  Note regarding registerBroadcastReceiver:
-      //  This module makes no attempt to unregister the receiver when the application is paused and re-registers the
-      //  receiver when the application comes to the foreground.  Feel free to fork and add this logic to your solution if
-      //  required - I have found in the past this has led to confusion.
     }
 
     @Override
     public void onHostPause() {
         //Log.v(TAG, "Host Pause");
-      //  Note regarding registerBroadcastReceiver:
-      //  This module makes no attempt to unregister the receiver when the application is paused and re-registers the
-      //  receiver when the application comes to the foreground.  Feel free to fork and add this logic to your solution if
-      //  required - I have found in the past this has led to confusion.
-      try
-      {
-          this.reactContext.unregisterReceiver(myEnumerateScannersBroadcastReceiver);
-      }
-      catch (IllegalArgumentException e)
-      {
-          //  Expected behaviour if there was not a previously registered receiver.
-      }
-      try
-      {
-          this.reactContext.unregisterReceiver(scannedDataBroadcastReceiver);
-      }
-      catch (IllegalArgumentException e)
-      {
-          //  Expected behaviour if there was not a previously registered receiver.
-      }
+        //  Note regarding registerBroadcastReceiver:
+        //  This module makes no attempt to unregister the receiver when the application is paused and re-registers the
+        //  receiver when the application comes to the foreground.  Feel free to fork and add this logic to your solution if
+        //  required - I have found in the past this has led to confusion.
+        //  The logic below refers to the now deprecated broadcast receivers.
+        unregisterReceivers();
     }
 
     @Override
     public void onHostDestroy() {
         // Activity `onDestroy`
         Log.v(TAG, "Host Destroy");
+    }
+
+    @Override
+    public void onCatalystInstanceDestroy() {
+        unregisterReceivers();
     }
 
     @Override
@@ -302,6 +296,8 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
                 Object compare = obj.get(key);
                 if (obj.get(key) instanceof String)
                     returnBundle.putString(key, obj.getString(key));
+                else if (key.equalsIgnoreCase("keystroke_output_enabled"))
+                    returnBundle.putString(key, obj.getString(key));
                 else if (obj.get(key) instanceof Boolean)
                     returnBundle.putBoolean(key, obj.getBoolean(key));
                 else if (obj.get(key) instanceof Integer)
@@ -321,6 +317,13 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
                             stringArray[j] = jsonArray.getString(j);
                         returnBundle.putStringArray(key, stringArray);
                         //returnBundle.putParcelableArray(key, obj.get);
+                    }
+                    else if (jsonArray.get(0) instanceof Double)
+                    {
+                        int[] intArray = new int[length];
+                        for (int j = 0; j < length; j++)
+                            intArray[j] = jsonArray.getInt(j);
+                        returnBundle.putIntArray(key, intArray);
                     }
                     else
                     {
@@ -349,14 +352,7 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
 		this.registeredAction = action;
 		this.registeredCategory = category;
         //  User has specified the intent action and category that DataWedge will be reporting
-        try
-        {
-            this.reactContext.unregisterReceiver(scannedDataBroadcastReceiver);
-        }
-        catch (IllegalArgumentException e)
-        {
-            //  Expected behaviour if there was not a previously registered receiver.
-        }
+        unregisterReceiver(scannedDataBroadcastReceiver);
         IntentFilter filter = new IntentFilter();
         filter.addAction(action);
         if (category != null && category.length() > 0)
@@ -367,14 +363,7 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
     @ReactMethod
     public void registerBroadcastReceiver(ReadableMap filterObj)
     {
-        try
-        {
-            this.reactContext.unregisterReceiver(genericReceiver);
-        }
-        catch (IllegalArgumentException e)
-        {
-            //  Expected behaviour if there was not a previously registered receiver.
-        }
+        unregisterReceiver(genericReceiver);
         IntentFilter filter = new IntentFilter();
         if (filterObj.hasKey("filterActions"))
         {
@@ -403,6 +392,22 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
         this.reactContext.registerReceiver(genericReceiver, filter);
     }
 
+    private void unregisterReceivers() {
+        unregisterReceiver(myEnumerateScannersBroadcastReceiver);
+        unregisterReceiver(scannedDataBroadcastReceiver);
+    }
+
+    private void unregisterReceiver(BroadcastReceiver receiver) {
+        try
+        {
+            this.reactContext.unregisterReceiver(receiver);
+        }
+        catch (IllegalArgumentException e)
+        {
+            //  Expected behaviour if there was not a previously registered receiver.
+        }
+    }
+
     //  Broadcast receiver for the response to the Enumerate Scanner API
     //  THIS METHOD IS DEPRECATED, you should enumerate scanners as shown in https://github.com/darryncampbell/DataWedgeReactNative/blob/master/App.js
     public BroadcastReceiver myEnumerateScannersBroadcastReceiver = new BroadcastReceiver() 
@@ -426,7 +431,7 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
         }
     };
 
-    public BroadcastReceiver genericReceiver = new BroadcastReceiver()
+    public static BroadcastReceiver genericReceiver = new BroadcastReceiver()
     {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -453,8 +458,15 @@ public class RNDataWedgeIntentsModule extends ReactContextBaseJavaModule impleme
       if (intent.hasExtra("v2API"))
       {
           Bundle intentBundle = intent.getExtras();
-          intentBundle.remove("com.symbol.datawedge.decode_data"); //  fb converter cannot cope with byte arrays
-          intentBundle.remove("com.motorolasolutions.emdk.datawedge.decode_data"); //  fb converter cannot cope with byte arrays
+
+          // Remove arrays (fb converter cannot cope with byte arrays)
+          for (String key : new ArrayList<String>(intentBundle.keySet())) {
+              Object extraValue = intentBundle.get(key);
+              if (extraValue instanceof byte[] || extraValue instanceof ArrayList || extraValue instanceof ArrayList<?>) {
+                  intentBundle.remove(key);
+              }
+          }
+          
           WritableMap map = Arguments.fromBundle(intentBundle);
           sendEvent(this.reactContext, "datawedge_broadcast_intent", map);
       }
